@@ -3,6 +3,8 @@ package org.example.chat.server;
 import java.io.*;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ClientManager implements Runnable {
     private final Socket socket;
@@ -14,7 +16,6 @@ public class ClientManager implements Runnable {
     public ClientManager(Socket socket) {
         this.socket = socket;
         try {
-
             bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
             bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             this.name = bufferedReader.readLine();
@@ -50,16 +51,42 @@ public class ClientManager implements Runnable {
     }
 
     private void sendClientMassage(String massage) {
-        for (ClientManager client : clients) {
-            try {
-
-                if (!client.name.equals(name) && massage != null) {
-                    client.bufferedWriter.write(massage);
-                    client.bufferedWriter.newLine();
-                    client.bufferedWriter.flush();
+        String[] findClient;
+        Pattern pattern = Pattern.compile("@");
+        Matcher matcher = pattern.matcher(massage);
+        boolean privat = false;
+        if (matcher.find()) {
+            privat = true;
+            massage = massage.replaceAll("@", "");
+        }
+        findClient = massage.split(" ");
+        if (privat) {
+            for (ClientManager client : clients) {
+                if (client.name.equals(findClient[1])) {
+                    massage = massage.replaceAll(findClient[1], "(private)");
+                    try {
+                        if (!client.name.equals(name) && massage != null) {
+                            client.bufferedWriter.write(massage);
+                            client.bufferedWriter.newLine();
+                            client.bufferedWriter.flush();
+                        }
+                    } catch (IOException e) {
+                        closeEvery(socket, bufferedWriter, bufferedReader);
+                    }
+                    break;
                 }
-            } catch (IOException e) {
-                closeEvery(socket, bufferedWriter, bufferedReader);
+            }
+        } else {
+            for (ClientManager client : clients) {
+                try {
+                    if (!client.name.equals(name) && massage != null) {
+                        client.bufferedWriter.write(massage);
+                        client.bufferedWriter.newLine();
+                        client.bufferedWriter.flush();
+                    }
+                } catch (IOException e) {
+                    closeEvery(socket, bufferedWriter, bufferedReader);
+                }
             }
         }
     }
